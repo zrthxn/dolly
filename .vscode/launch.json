@@ -1,0 +1,37 @@
+{
+    "configurations": [
+        {
+            "name": "Debug Train",
+            "type": "python",
+            "request": "launch",
+            "program": "training/trainer.py",
+            "args": [
+                "--epochs=1",
+                "--local-output-dir=.checkpoints/dolly_training/dolly_debug",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+        },
+        {
+            "name": "Train [ds_z3_bf16]",
+            "type": "python",
+            "request": "launch",
+            "program": "training/trainer.py",
+            "args": [
+                "--epochs=10",
+                "--local-output-dir=.checkpoints/dolly_training/dolly_debug",
+                "--deepspeed=config/ds_z3_bf16_config.json",
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true,
+        },
+        {
+            "name": "Run Dolly",
+            "type": "python",
+            "request": "launch",
+            "program": "train_dolly.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+        },
+    ]
+}

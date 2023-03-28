@@ -58,8 +58,6 @@ import os
 from datetime import datetime
 from training.trainer import load_training_dataset, load_tokenizer
 
-dbutils.widgets.text("num_gpus", "", "num_gpus")
-
 # COMMAND ----------
 
 # Cache data and tokenizer locally before creating a bunch of deepspeed processes and make sure they succeeds.
@@ -75,15 +73,14 @@ checkpoint_dir_name = f"{model_name}__{timestamp}"
 root_path = os.getcwd()
 deepspeed_config = os.path.join(root_path, "config/ds_z3_bf16_config.json")
 
-local_training_root = os.path.join(os.path.expanduser('~'), "dolly_training")
+local_training_root = os.path.join(".checkpoints", "dolly_training")
 
 os.makedirs(local_training_root, exist_ok=True)
 
 local_output_dir = os.path.join(local_training_root, checkpoint_dir_name)
-dbfs_output_dir = os.path.join("/dbfs/dolly_training", checkpoint_dir_name)
 
 num_gpus_flag = ""
-num_gpus = dbutils.widgets.get("num_gpus")
+num_gpus = 0
 if num_gpus:
     num_gpus = int(num_gpus)
     num_gpus_flag = f"--num_gpus={num_gpus}"
@@ -91,7 +88,6 @@ if num_gpus:
 tensorboard_display_dir = f"{local_output_dir}/runs"
 
 print(f"Local Output Dir: {local_output_dir}")
-print(f"DBFS Output Dir: {dbfs_output_dir}")
 print(f"Tensorboard Display Dir: {tensorboard_display_dir}")
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -108,7 +104,6 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # MAGIC     --deepspeed {deepspeed_config} \
 # MAGIC     --epochs 1 \
 # MAGIC     --local-output-dir {local_output_dir} \
-# MAGIC     --dbfs-output-dir {dbfs_output_dir} \
 # MAGIC     --per-device-train-batch-size 8 \
 # MAGIC     --per-device-eval-batch-size 8 \
 # MAGIC     --lr 1e-5

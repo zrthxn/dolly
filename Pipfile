@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+accelerate = ">=0.12.0"
+click = "*"
+datasets = "*"
+deepspeed = "*"
+transformers = {version = "*", extras = ["torch"]}
+watchdog = "*"
+tensorboard = "*"
+
+[dev-packages]
+torch = "*"
+torchvision = "*"
+ipykernel = "*"
+
+[requires]
+python_version = "3.11"

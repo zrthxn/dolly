@@ -77,7 +77,7 @@ def preprocess_batch(batch: Dict[str, List], tokenizer: AutoTokenizer, max_lengt
 
 def load_training_dataset(training_data_id: str = DEFAULT_TRAINING_DATASET, split: str = "train") -> Dataset:
     logger.info(f"Loading {training_data_id} dataset")
-    dataset: Dataset = load_dataset(training_data_id)[split]
+    dataset: Dataset = load_dataset(training_data_id, cache_dir=".data")[split]
     logger.info("Found %d rows", dataset.num_rows)
 
     # Remove empty responses
@@ -104,18 +104,11 @@ def load_model(
 ) -> AutoModelForCausalLM:
     logger.info(f"Loading model for {pretrained_model_name_or_path}")
     model = AutoModelForCausalLM.from_pretrained(
-        pretrained_model_name_or_path, trust_remote_code=True, use_cache=False if gradient_checkpointing else True
+        pretrained_model_name_or_path, 
+        trust_remote_code=True, 
+        use_cache=(not gradient_checkpointing)
     )
     return model
-
-
-def get_model_tokenizer(
-    pretrained_model_name_or_path: str = DEFAULT_INPUT_MODEL, *, gradient_checkpointing: bool = False
-) -> Tuple[AutoModelForCausalLM, PreTrainedTokenizer]:
-    tokenizer = load_tokenizer(pretrained_model_name_or_path)
-    model = load_model(pretrained_model_name_or_path, gradient_checkpointing=gradient_checkpointing)
-    return model, tokenizer
-
 
 def preprocess_dataset(tokenizer: AutoTokenizer, max_length: int = MAX_LENGTH, seed=DEFAULT_SEED) -> Dataset:
     """Loads the training dataset and tokenizes it so it is ready for training.
@@ -148,7 +141,6 @@ def preprocess_dataset(tokenizer: AutoTokenizer, max_length: int = MAX_LENGTH, s
 
 def train(
     local_output_dir,
-    dbfs_output_dir,
     epochs,
     per_device_train_batch_size,
     per_device_eval_batch_size,
@@ -162,18 +154,15 @@ def train(
 ):
     set_seed(seed)
 
-    model, tokenizer = get_model_tokenizer(gradient_checkpointing=gradient_checkpointing)
+    tokenizer = load_tokenizer(DEFAULT_INPUT_MODEL)
+    model = load_model(DEFAULT_INPUT_MODEL, gradient_checkpointing=gradient_checkpointing)
 
     processed_dataset = preprocess_dataset(tokenizer=tokenizer, seed=seed)
-
     split_dataset = processed_dataset.train_test_split(test_size=test_size, seed=seed)
 
     data_collator = DataCollatorForCompletionOnlyLM(
         tokenizer=tokenizer, mlm=False, return_tensors="pt", pad_to_multiple_of=8
     )
-
-    if not dbfs_output_dir:
-        logger.warn("Will NOT save to DBFS")
 
     training_args = TrainingArguments(
         output_dir=local_output_dir,
@@ -197,11 +186,10 @@ def train(
         report_to="tensorboard",
         disable_tqdm=True,
         remove_unused_columns=False,
-        local_rank=local_rank,
+        # local_rank=local_rank,
     )
 
     logger.info("Instantiating Trainer")
-
     trainer = Trainer(
         model=model,
         tokenizer=tokenizer,
@@ -217,10 +205,6 @@ def train(
     logger.info(f"Saving Model to {local_output_dir}")
     trainer.save_model(output_dir=local_output_dir)
 
-    if dbfs_output_dir:
-        logger.info(f"Saving Model to {dbfs_output_dir}")
-        trainer.save_model(output_dir=dbfs_output_dir)
-
     logger.info("Done.")
 
 
@@ -228,7 +212,6 @@ def train(
 @click.option(
     "--local-output-dir", type=str, help="Write directly to this local path", required=True
 )
-@click.option("--dbfs-output-dir", type=str, help="Sync data to this path on DBFS")
 @click.option("--epochs", type=int, default=3, help="Number of epochs to train for.")
 @click.option("--per-device-train-batch-size", type=int, default=8, help="Batch size to use for training.")
 @click.option("--per-device-eval-batch-size", type=int, default=8, help="Batch size to use for evaluation.")
